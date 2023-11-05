@@ -11,11 +11,13 @@ public class QuantumSweeper extends JFrame{
     private static int HP = 3;
     private static int Tile = 0;
     private static int SelectedSpace = 0;
+    public static boolean ShowBombs = false;
 
     QuantumSweeper(int dif) {
         //Randomizer random = new Randomizer();
         JButton[][] button = new JButton[dif][dif];
         int[][] bomb = new int[dif][dif];
+        JButton BombShower = new JButton();
 
         JButton flag = new JButton();
         int[][] flagged = new int[dif][dif];
@@ -30,6 +32,8 @@ public class QuantumSweeper extends JFrame{
 
         flag.setBounds(dif * 45 + 20, 20, 45, 45);
         flag.setBackground(Color.black);
+        BombShower.setBounds(dif * 45 + 20, 65, 45, 45);
+        BombShower.setBackground(Color.darkGray);
 
         for (int x = 0; x < dif; x++) {
             for (int y = 0; y < dif; y++) {
@@ -40,6 +44,7 @@ public class QuantumSweeper extends JFrame{
         int bombCount = 0;
         for (int x = 0; x < dif; x++) {
             for (int y = 0; y < dif; y++) {
+                button[x][y].setBackground(Color.lightGray);
                 int random = (int) (Math.random() * (dif / 3 + 20 / 3));
                 /* 10 : 20%
                    15 : 17%
@@ -96,6 +101,28 @@ public class QuantumSweeper extends JFrame{
         }
 
         flag.addActionListener(e -> flagger.set(QuantumSweeper.switcher(flagger.get(), flag)));
+        BombShower.addActionListener(e -> {
+            ShowBombs = RevealBombs(ShowBombs, BombShower);
+            for (int x = 0; x < dif; x++) {
+                for (int y = 0; y < dif; y++) {
+                    if (ShowBombs) {
+                        if (bomb[x][y] == 0 || bomb[x][y] == 2) {
+                            button[x][y].setBackground(Color.GRAY);
+                        } else {
+                            button[x][y].setBackground(Color.PINK);
+                        }
+                    } else {
+                        if (flagged[x][y] == 1) {
+                            button[x][y].setBackground(Color.RED);
+                        } else if (bomb[x][y] == 2) {
+                            button[x][y].setBackground(Color.white);
+                        } else {
+                            button[x][y].setBackground(Color.lightGray);
+                        }
+                    }
+                }
+            }
+        });
 
         //Lives.setEnabled(false);
 
@@ -106,6 +133,7 @@ public class QuantumSweeper extends JFrame{
         this.setSize(800, 800);
         this.setVisible(true);
         this.add(flag);
+        this.add(BombShower);
         for (int x = 0; x < dif; x++) {
             for (int y = 0; y < dif; y++) {
                 //button[x][y].setFocusable(true);
@@ -122,6 +150,16 @@ public class QuantumSweeper extends JFrame{
     }
     */
 
+    public static boolean RevealBombs(boolean flag, JButton eh) {
+        if (!flag) {
+            eh.setBackground(Color.blue);
+            return true;
+        } else {
+            eh.setBackground(Color.darkGray);
+            return false;
+        }
+    }
+
     public static boolean switcher(boolean flag, JButton eh) {
         if (!flag) {
             eh.setBackground(Color.red);
@@ -132,7 +170,20 @@ public class QuantumSweeper extends JFrame{
         }
     }
 
-    public static void MoveBomb(int dif, int[][] bomb, JButton[][] button, String[][] num, int[][] flag) {
+    public static boolean ClusterBomb(int[][] bomb, int[][] flagged, int[] location, int[] OldPos) {
+        if (LimitReached(location[0], location[1], flagged, bomb, new ArrayList<>(), 13)) {
+            return false;
+        }
+
+        ArrayList<int[]> Pos = new ArrayList<>();
+        Pos.add(OldPos);
+        FindAll(location[0], location[1], flagged, bomb, Pos);
+
+        int Length = Pos.size() - 1;
+        return Math.pow((100 - Math.pow(Length + 2, 3.25) / 100) / 100, 2) * 100 > (Math.random() * 100);
+    }
+
+    public static void MoveBomb(int dif, int[][] bomb, JButton[][] button, int[][] flag) {
         for (int x = 0; x < dif; x++) {
             for (int y = 0; y < dif; y++) {
                 if (bomb[x][y] == 1 && flag[x][y] == 0) {
@@ -162,73 +213,73 @@ public class QuantumSweeper extends JFrame{
                         switch (Value) {
                             case 0 -> {
                                 try {
-                                    if (bomb[x][y - 1] != 0) {
+                                    if (bomb[x][y - 1] != 0 && ClusterBomb(bomb, flag, new int[]{x, y - 1}, new int[]{x,y})) {
                                         throw new NegativeArraySizeException("Bomb cannot move to");
                                     }
-                                    SwapBomb(bomb, new int[]{x, y}, new int[]{x, y - 1}, dif, button, num);
+                                    SwapBomb(bomb, new int[]{x, y}, new int[]{x, y - 1});
                                     MoveList = new ArrayList<>();
                                 } catch (Exception ignore){}
                             }
                             case 1 -> {
                                 try {
-                                    if (bomb[x][y + 1] != 0) {
+                                    if (bomb[x][y + 1] != 0 && ClusterBomb(bomb, flag, new int[]{x, y + 1}, new int[]{x,y})) {
                                         throw new NegativeArraySizeException("Bomb cannot move to");
                                     }
-                                    SwapBomb(bomb, new int[]{x, y}, new int[]{x, y + 1}, dif, button, num);
+                                    SwapBomb(bomb, new int[]{x, y}, new int[]{x, y + 1});
                                     MoveList = new ArrayList<>();
                                 } catch (Exception ignore) {}
                             }
                             case 2 -> {
                                 try {
-                                    if (bomb[x - 1][y] != 0) {
+                                    if (bomb[x - 1][y] != 0 && ClusterBomb(bomb, flag, new int[]{x - 1, y}, new int[]{x,y})) {
                                         throw new NegativeArraySizeException("Bomb cannot move to");
                                     }
-                                    SwapBomb(bomb, new int[]{x, y}, new int[]{x - 1, y}, dif, button, num);
+                                    SwapBomb(bomb, new int[]{x, y}, new int[]{x - 1, y});
                                     MoveList = new ArrayList<>();
                                 } catch (Exception ignore){}
                             }
                             case 3 -> {
                                 try {
-                                    if (bomb[x + 1][y] != 0) {
+                                    if (bomb[x + 1][y] != 0 && ClusterBomb(bomb, flag, new int[]{x + 1, y}, new int[]{x,y})) {
                                         throw new NegativeArraySizeException("Bomb cannot move to");
                                     }
-                                    SwapBomb(bomb, new int[]{x, y}, new int[]{x + 1, y}, dif, button, num);
+                                    SwapBomb(bomb, new int[]{x, y}, new int[]{x + 1, y});
                                     MoveList = new ArrayList<>();
                                 } catch (Exception ignore){}
                             }
                             case 4 -> {
                                 try {
-                                    if (bomb[x + 1][y + 1] != 0) {
+                                    if (bomb[x + 1][y + 1] != 0 && ClusterBomb(bomb, flag, new int[]{x + 1, y + 1}, new int[]{x,y})) {
                                         throw new NegativeArraySizeException("Bomb cannot move to");
                                     }
-                                    SwapBomb(bomb, new int[]{x, y}, new int[]{x + 1, y + 1}, dif, button, num);
+                                    SwapBomb(bomb, new int[]{x, y}, new int[]{x + 1, y + 1});
                                     MoveList = new ArrayList<>();
                                 } catch (Exception ignore){}
                             }
                             case 5 -> {
                                 try {
-                                    if (bomb[x + 1][y - 1] != 0) {
+                                    if (bomb[x + 1][y - 1] != 0 && ClusterBomb(bomb, flag, new int[]{x + 1, y - 1}, new int[]{x,y})) {
                                         throw new NegativeArraySizeException("Bomb cannot move to");
                                     }
-                                    SwapBomb(bomb, new int[]{x, y}, new int[]{x + 1, y - 1}, dif, button, num);
+                                    SwapBomb(bomb, new int[]{x, y}, new int[]{x + 1, y - 1});
                                     MoveList = new ArrayList<>();
                                 } catch (Exception ignore){}
                             }
                             case 6 -> {
                                 try {
-                                    if (bomb[x - 1][y + 1] != 0) {
+                                    if (bomb[x - 1][y + 1] != 0 && ClusterBomb(bomb, flag, new int[]{x - 1, y + 1}, new int[]{x,y})) {
                                         throw new NegativeArraySizeException("Bomb cannot move to");
                                     }
-                                    SwapBomb(bomb, new int[]{x, y}, new int[]{x - 1, y + 1}, dif, button, num);
+                                    SwapBomb(bomb, new int[]{x, y}, new int[]{x - 1, y + 1});
                                     MoveList = new ArrayList<>();
                                 } catch (Exception ignore){}
                             }
                             case 7 -> {
                                 try {
-                                    if (bomb[x - 1][y - 1] != 0) {
+                                    if (bomb[x - 1][y - 1] != 0 && ClusterBomb(bomb, flag, new int[]{x - 1, y - 1}, new int[]{x,y})) {
                                         throw new NegativeArraySizeException("Bomb cannot move to");
                                     }
-                                    SwapBomb(bomb, new int[]{x, y}, new int[]{x - 1, y - 1}, dif, button, num);
+                                    SwapBomb(bomb, new int[]{x, y}, new int[]{x - 1, y - 1});
                                     MoveList = new ArrayList<>();
                                 } catch (Exception ignore){}
                             }
@@ -236,7 +287,13 @@ public class QuantumSweeper extends JFrame{
                                 MoveList = new ArrayList<>();
                             }
                             case 9 -> {
-                                // TP
+                                int MoreRandom = (int) (Math.random() * 100);
+                                if (MoreRandom > 70) {
+                                    TPRandom(dif, bomb, new int[]{x, y}, button);
+                                    MoveList = new ArrayList<>();
+                                } else {
+                                    MoveList.add(0, (int) (Math.random() * 8));
+                                }
                             }
                         }
                     }
@@ -245,11 +302,7 @@ public class QuantumSweeper extends JFrame{
         }
     }
 
-    public static void SwapBomb(int[][] bomb, int[] OldPos, int[] NewPos, int dif, JButton[][] button, String[][] num) {
-        int Hold = bomb[OldPos[0]][OldPos[1]];
-        bomb[OldPos[0]][OldPos[1]] = bomb[NewPos[0]][NewPos[1]];
-        bomb[NewPos[0]][NewPos[1]] = Hold;
-
+    public static void UpdateCount(int[][] bomb, int dif, JButton[][] button, String[][] num) {
         for (int x = 0; x < dif; x++) {
             for (int y = 0; y < dif; y++) {
                 int count = 0;
@@ -267,14 +320,26 @@ public class QuantumSweeper extends JFrame{
                         button[x][y].setText(num[x][y]);
                     }
                     //button[x][y].setText(String.valueOf(count));
-                    button[x][y].setBackground(Color.GRAY);
+                    if (ShowBombs) {
+                        button[x][y].setBackground(Color.GRAY);
+                    }
                 } else {
                     num[x][y] = "Bomb";
                     //button[x][y].setText("Bomb");
-                    button[x][y].setBackground(Color.PINK);
+                    if (ShowBombs) {
+                        button[x][y].setBackground(Color.PINK);
+                    }
                 }
             }
         }
+    }
+
+    public static void SwapBomb(int[][] bomb, int[] OldPos, int[] NewPos) {
+        //System.out.println(bomb[OldPos[0]][OldPos[1]] + " " + bomb[NewPos[0]][NewPos[1]]);
+        int Hold = bomb[OldPos[0]][OldPos[1]];
+        bomb[OldPos[0]][OldPos[1]] = bomb[NewPos[0]][NewPos[1]];
+        bomb[NewPos[0]][NewPos[1]] = Hold;
+        //System.out.println(bomb[OldPos[0]][OldPos[1]] + " " + bomb[NewPos[0]][NewPos[1]]);
     }
 
     public static void close(JButton[][] button, String[][] num, int[][] bomb, int a, int b, int dif, boolean flag, int[][] flagged) {
@@ -318,12 +383,15 @@ public class QuantumSweeper extends JFrame{
                         }
                     }
                 }
-            } else { // Do Quantum Mine Stuff
-                PinBomb(dif, bomb, flagged);
+            } else {
                 // Start at a flagged bomb, and automatically pin bombs that are touching either a pin or flagged bomb
-                MoveBomb(dif, bomb, button, num, flagged);
-                // If too clumped, scatter the bombs of flagged == 2. AKA fucking yeet them
+                PinBomb(dif, bomb, flagged);
+                // All bombs that can move, move
+                MoveBomb(dif, bomb, button, flagged);
+                // If too clumped, scatter the bombs of flagged == 2. AKA f***ing yeet them
                 YeetBomb(dif, bomb, flagged, button);
+                // Updates the Number's Counter
+                UpdateCount(bomb, dif, button, num);
             }
         } else {
             if (flagged[a][b] == 1) {
@@ -342,8 +410,8 @@ public class QuantumSweeper extends JFrame{
             int RandomY = (int) (Math.random() * dif);
 
             if (bomb[RandomX][RandomY] == 0) {
-                bomb[Before[0]][Before[1]] = 0;
-                bomb[RandomX][RandomY] = 1;
+                SwapBomb(bomb, Before, new int[]{RandomX, RandomY});
+                //System.out.println("TP");
                 //button[RandomX][RandomY].setBackground(Color.RED);
                 return;
             }
@@ -355,7 +423,7 @@ public class QuantumSweeper extends JFrame{
         for (int x = 0; x < dif; x++) {
             for (int y = 0; y < dif; y++) {
                 if ((flagged[x][y] == 1 || flagged[x][y] == 2) && (bomb[x][y] == 1)) {
-                    if (LimitReached(x, y, flagged, bomb, new ArrayList<>())) {
+                    if (LimitReached(x, y, flagged, bomb, new ArrayList<>(), 10)) {
                         ArrayList<int[]> Positions = new ArrayList<>();
                         FindAll(x, y, flagged, bomb, Positions);
 
@@ -423,20 +491,20 @@ public class QuantumSweeper extends JFrame{
     }
 
 
-    static boolean LimitReached(int xPos, int yPos, int[][] flagged, int[][] bomb, ArrayList<int[]> Pos) {
+    static boolean LimitReached(int xPos, int yPos, int[][] flagged, int[][] bomb, ArrayList<int[]> Pos, int Limit) {
         if (Search(Pos, new int[]{xPos, yPos})) {
             return false;
         }
         Pos.add(new int[]{xPos, yPos});
 
-        if (Pos.size() >= 10) {
+        if (Pos.size() >= Limit) {
             return true;
         }
 
         try {
             if ((flagged[xPos + 1][yPos] == 1 || flagged[xPos + 1][yPos] == 2) && (bomb[xPos + 1][yPos] == 1)) {
                 if (!Search(Pos, new int[]{xPos + 1, yPos})) {
-                    if (LimitReached(xPos + 1, yPos, flagged, bomb, Pos)) {
+                    if (LimitReached(xPos + 1, yPos, flagged, bomb, Pos, Limit)) {
                         return true;
                     }
                 }
@@ -446,7 +514,7 @@ public class QuantumSweeper extends JFrame{
         try {
             if ((flagged[xPos - 1][yPos] == 1 || flagged[xPos - 1][yPos] == 2) && (bomb[xPos - 1][yPos] == 1)) {
                 if (!Search(Pos, new int[]{xPos - 1, yPos})) {
-                    if (LimitReached(xPos - 1, yPos, flagged, bomb, Pos)) {
+                    if (LimitReached(xPos - 1, yPos, flagged, bomb, Pos, Limit)) {
                         return true;
                     }
                 }
@@ -456,7 +524,7 @@ public class QuantumSweeper extends JFrame{
         try {
             if ((flagged[xPos][yPos + 1] == 1 || flagged[xPos][yPos + 1] == 2) && (bomb[xPos][yPos + 1] == 1)) {
                 if (!Search(Pos, new int[]{xPos, yPos + 1})) {
-                    if (LimitReached(xPos, yPos + 1, flagged, bomb, Pos)) {
+                    if (LimitReached(xPos, yPos + 1, flagged, bomb, Pos, Limit)) {
                         return true;
                     }
                 }
@@ -466,7 +534,7 @@ public class QuantumSweeper extends JFrame{
         try {
             if ((flagged[xPos][yPos - 1] == 1 || flagged[xPos][yPos - 1] == 2) && (bomb[xPos][yPos - 1] == 1)) {
                 if (!Search(Pos, new int[]{xPos, yPos - 1})) {
-                    if (LimitReached(xPos, yPos - 1, flagged, bomb, Pos)) {
+                    if (LimitReached(xPos, yPos - 1, flagged, bomb, Pos, Limit)) {
                         return true;
                     }
                 }
@@ -479,7 +547,7 @@ public class QuantumSweeper extends JFrame{
     public static void PinBomb(int dif, int[][] bomb, int[][] flagged) {
         for (int x = 0; x < dif; x++) {
             for (int y = 0; y < dif; y++) {
-                if (flagged[x][y] == 1 || flagged[x][y] == 2) {
+                if ((flagged[x][y] == 1 || flagged[x][y] == 2) && bomb[x][y] == 1) {
                     try {
                         if (bomb[x + 1][y] == 1) {
                             flagged[x + 1][y] = 2;
